@@ -27,8 +27,9 @@ ul li { margin: 0.5em 0; }
   after <a href="go1.8">Go 1.8</a> and is the tenth release in
   the <a href="https://golang.org/doc/devel/release.html">Go 1.x
   series</a>.
-  There is one <a href="#language">change to the language</a>, adding
-  support for type aliases.
+  There are two <a href="#language">changes to the language</a>,
+  adding support for type aliases, and defining when implementations
+  may fuse floating point operations.
   Most of the changes are in the implementation of the toolchain,
   runtime, and libraries.
   As always, the release maintains the Go 1
@@ -49,7 +50,9 @@ ul li { margin: 0.5em 0; }
 <h2 id="language">Changes to the language</h2>
 
 <p>
-  There is one change to the language.
+  There are two changes to the language.
+</p>
+<p>
   Go now supports type aliases to support gradual code repair while
   moving a type between packages.
   The <a href="https://golang.org/design/18130-type-alias">type alias
@@ -67,6 +70,16 @@ type T1 = T2
   This declaration introduces an alias name <code>T1</code>—an
   alternate spelling—for the type denoted by <code>T2</code>; that is,
   both <code>T1</code> and <code>T2</code> denote the same type.
+</p>
+
+<p> <!-- CL 40391 -->
+  A smaller language change is that the
+  <a href="/ref/spec#Floating_point_operators">language specification
+  now states</a> when implementations are allowed to fuse floating
+  point operations together, such as by using an architecture's "fused
+  multiply and add" (FMA) instruction to compute <code>x*y + z</code>
+  without rounding the intermediate result <code>x*y</code>.
+  To force the intermediate rounding, write <code>float64(x*y) + z</code>.
 </p>
 
 <h2 id="ports">Ports</h2>
@@ -259,7 +272,7 @@ CL 40331: https://golang.org/cl/40331: cmd/link,runtime/cgo: enable PT_TLS gener
 <p> <!-- CL 38796 -->
   The
   new <a href="/pkg/testing/#T.Helper"><code>(*T).Helper</code></a>
-  an <a href="/pkg/testing/#B.Helper"><code>(*B).Helper</code></a>
+  and <a href="/pkg/testing/#B.Helper"><code>(*B).Helper</code></a>
   methods mark the calling function as a test helper function.  When
   printing file and line information, that function will be skipped.
   This permits writing test helper functions while still having useful
@@ -609,6 +622,15 @@ CL 40331: https://golang.org/cl/40331: cmd/link,runtime/cgo: enable PT_TLS gener
 
 <dl id="os"><dt><a href="/pkg/os/">os</a></dt>
   <dd>
+    <p><!-- CL 36800 -->
+      The <code>os</code> package now uses the internal runtime poller
+      for file I/O.
+      This reduces the number of threads required for read/write
+      operations on pipes, and eliminates races when one goroutine
+      closes a file while another using it for I/O.
+    </p>
+
+  <dd>
     <p><!-- CL 37915 -->
       On Windows,
       <a href="/pkg/os/#Args"><code>Args</code></a>
@@ -789,15 +811,22 @@ CL 40331: https://golang.org/cl/40331: cmd/link,runtime/cgo: enable PT_TLS gener
       <a href="/pkg/time/#Duration.Round"><code>Duration.Round</code></a>
       and 
       <a href="/pkg/time/#Duration.Truncate"><code>Duration.Truncate</code></a>
-      handle rounding durations away from and towards zero, respectively.
+      handle rounding and truncating durations to multiples of a given duration.
     </p>
 
     <p><!-- CL 35710 -->
       Retrieving the time and sleeping now work correctly under Wine.
     </p>
 
+    <p>
+      If a <code>Time</code> value has a monotonic clock reading, its
+      string representation (as returned by <code>String</code>) now includes a
+      final field <code>"m=±value"</code>, where <code>value</code> is the
+      monotonic clock reading formatted as a decimal number of seconds.
+    </p>
+
     <p><!-- CL 44832 -->
-      The included <code>tzdata</code> timezone database has bene
+      The included <code>tzdata</code> timezone database has been
       updated to version 2017b. As always, it is only used if the
       system does not already have the database available.
     </p>
