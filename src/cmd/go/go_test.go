@@ -2633,17 +2633,6 @@ func TestGoTestFlagsAfterPackage(t *testing.T) {
 	tg.run("test", "-v", "testdata/flag_test.go", "-args", "-v=7") // Two distinct -v flags.
 }
 
-func TestGoTestShowInProgressOnInterrupt(t *testing.T) {
-	if runtime.GOOS == "windows" || runtime.GOOS == "plan9" {
-		t.Skipf("skipping test on %s - lack of full unix-like signal support", runtime.GOOS)
-	}
-	tg := testgo(t)
-	defer tg.cleanup()
-	tg.run("test", "-v", "testdata/inprogress_interrupt_test.go")
-	testsInProgress := "tests in progress: TestParallel, TestSerial"
-	tg.grepStdout(testsInProgress, "tests which haven't completed should be listed in progress")
-}
-
 func TestGoTestXtestonlyWorks(t *testing.T) {
 	tg := testgo(t)
 	defer tg.cleanup()
@@ -4072,6 +4061,8 @@ func TestExecutableGOROOT(t *testing.T) {
 	newRoot := tg.path("new")
 
 	t.Run("RelocatedExe", func(t *testing.T) {
+		t.Skip("TODO: skipping known broken test; see golang.org/issue/20284")
+
 		// Should fall back to default location in binary.
 		// No way to dig out other than look at source code.
 		data, err := ioutil.ReadFile("../../runtime/internal/sys/zversion.go")
@@ -4322,4 +4313,21 @@ func TestTestRegexps(t *testing.T) {
 	if have != want {
 		t.Errorf("reduced output:<<<\n%s>>> want:<<<\n%s>>>", have, want)
 	}
+}
+
+func TestListTests(t *testing.T) {
+	var tg *testgoData
+	testWith := func(listName, expected string) func(*testing.T) {
+		return func(t *testing.T) {
+			tg = testgo(t)
+			defer tg.cleanup()
+			tg.run("test", "./testdata/src/testlist/...", fmt.Sprintf("-list=%s", listName))
+			tg.grepStdout(expected, fmt.Sprintf("-test.list=%s returned %q, expected %s", listName, tg.getStdout(), expected))
+		}
+	}
+
+	t.Run("Test", testWith("Test", "TestSimple"))
+	t.Run("Bench", testWith("Benchmark", "BenchmarkSimple"))
+	t.Run("Example1", testWith("Example", "ExampleSimple"))
+	t.Run("Example2", testWith("Example", "ExampleWithEmptyOutput"))
 }

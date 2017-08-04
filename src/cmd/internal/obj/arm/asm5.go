@@ -1167,6 +1167,11 @@ func (c *ctxt5) aclass(a *obj.Addr) int {
 			return C_ADDR
 
 		case obj.NAME_AUTO:
+			if a.Reg == REGSP {
+				// unset base register for better printing, since
+				// a.Offset is still relative to pseudo-SP.
+				a.Reg = obj.REG_NONE
+			}
 			c.instoffset = c.autosize + a.Offset
 			if t := immaddr(int32(c.instoffset)); t != 0 {
 				if immhalf(int32(c.instoffset)) {
@@ -1185,6 +1190,11 @@ func (c *ctxt5) aclass(a *obj.Addr) int {
 			return C_LAUTO
 
 		case obj.NAME_PARAM:
+			if a.Reg == REGSP {
+				// unset base register for better printing, since
+				// a.Offset is still relative to pseudo-FP.
+				a.Reg = obj.REG_NONE
+			}
 			c.instoffset = c.autosize + a.Offset + 4
 			if t := immaddr(int32(c.instoffset)); t != 0 {
 				if immhalf(int32(c.instoffset)) {
@@ -1285,10 +1295,20 @@ func (c *ctxt5) aclass(a *obj.Addr) int {
 			return C_LCONADDR
 
 		case obj.NAME_AUTO:
+			if a.Reg == REGSP {
+				// unset base register for better printing, since
+				// a.Offset is still relative to pseudo-SP.
+				a.Reg = obj.REG_NONE
+			}
 			c.instoffset = c.autosize + a.Offset
 			return c.aconsize()
 
 		case obj.NAME_PARAM:
+			if a.Reg == REGSP {
+				// unset base register for better printing, since
+				// a.Offset is still relative to pseudo-FP.
+				a.Reg = obj.REG_NONE
+			}
 			c.instoffset = c.autosize + a.Offset + 4
 			return c.aconsize()
 		}
@@ -1341,6 +1361,27 @@ func (c *ctxt5) oplook(p *obj.Prog) *Optab {
 		default:
 			c.ctxt.Diag("invalid register in %v", p)
 		}
+	}
+
+	// check illegal base register
+	switch a1 {
+	case C_SHIFT:
+		if p.From.Reg == 0 { // no base register
+			break
+		}
+		fallthrough
+	case C_SOREG, C_LOREG, C_HOREG, C_FOREG, C_ROREG, C_HFOREG, C_SROREG:
+		if p.From.Reg < REG_R0 || REG_R15 < p.From.Reg {
+			c.ctxt.Diag("illegal base register: %v", p)
+		}
+	default:
+	}
+	switch a3 {
+	case C_SOREG, C_LOREG, C_HOREG, C_FOREG, C_ROREG, C_HFOREG, C_SROREG, C_SHIFT:
+		if p.To.Reg < REG_R0 || REG_R15 < p.To.Reg {
+			c.ctxt.Diag("illegal base register: %v", p)
+		}
+	default:
 	}
 
 	// If current instruction has a .S suffix (flags update),
